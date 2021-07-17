@@ -8,10 +8,34 @@ class MyWorkflow(Workflow):
         super(MyWorkflow, self).__init__(**kwargs)
 
 
+class ReadFileTask(BaseTask):
+    path = String()
+
+    def __init__(self, **kwargs):
+        self.content = None
+        super().__init__(**kwargs)
+
+    def run(self):
+        with open(self.path) as f:
+            self.content = f.read()
+
+    def output(self):
+        return {"content": self.content}
+
+
+class VerifyConnectTask(BaseTask):
+    content = String()
+    verify_content = String()
+
+    def run(self):
+        print(self.content)
+        assert self.content == self.verify_content
+
+
 class TestWorkflowRun:
     def test_run_workflow_error(self):
         workflow_instance = MyWorkflow(definitions={
-            "modules": ["tests.test_workflow.test_tasks"],
+            "modules": ["tests.test_workflow.test_tasks", "tests.test_workflow.test_workflow"],
             "tasks": {
                 "CalledTask": {
                     "parameters": {}
@@ -36,7 +60,7 @@ class TestWorkflowRun:
         workflow_instance = MyWorkflow(
             raise_on_error=True,
             definitions={
-                "modules": ["tests.test_workflow.test_tasks"],
+                "modules": ["tests.test_workflow.test_workflow"],
                 "tasks": {
                     "ReadFileTask": {
                         "parameters": {
@@ -46,7 +70,7 @@ class TestWorkflowRun:
                     "VerifyConnectTask": {
                         "name": "VerifyConnectTask",
                         "parameters": {
-                            "content": "this is a sample content",
+                            "content": "$context.content",
                             "verify_content": "this is a sample content"
                         }
                     }

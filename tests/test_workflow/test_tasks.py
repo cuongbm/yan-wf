@@ -91,30 +91,6 @@ class RunErrorTask(BaseTask):
         raise ValueError(self.error_message)
 
 
-class ReadFileTask(BaseTask):
-    path = String()
-
-    def __init__(self, **kwargs):
-        self.content = None
-        super().__init__(**kwargs)
-
-    def run(self):
-        with open(self.path) as f:
-            self.content = f.read()
-
-    def output(self):
-        return {"content": self.content}
-
-
-class VerifyConnectTask(BaseTask):
-    content = String()
-    verify_content = String()
-
-    def run(self):
-        print(self.content)
-        assert self.content == self.verify_content
-
-
 class TestWorkflowContext:
     def test_change_context(self):
         context = WorkflowContext()

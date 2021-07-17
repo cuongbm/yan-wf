@@ -1,6 +1,6 @@
 from workflow.utils import guard_not_null
 from workflow.initializer import get_task_cls
-from workflow.tasks import BaseTask
+from workflow.tasks import BaseTask, WorkflowContext
 import sys
 from abc import ABC, abstractmethod
 from importlib import import_module
@@ -16,21 +16,26 @@ class Workflow:
         self.status = RunStatus.NOT_STARTED
         self.trace = None
         self.error = None
-        self.context = {}
+        self.context = WorkflowContext()
 
         self.tasks: Dict[str, BaseTask] = {}
         if definitions:
-            for task_name in definitions["tasks"]:
-                task_definition = definitions["tasks"][task_name]
-                cls_name = task_definition.get("cls", task_name)
-                task_cls = get_task_cls(
-                    definitions["modules"],
-                    cls_name)
+            self._create_tasks(definitions)
 
-                task_instance = task_cls(
-                    name=task_definition.get("name", task_name),
-                    **task_definition["parameters"])
-                self.tasks[task_name] = task_instance
+    def _create_tasks(self, definitions):
+        for task_name in definitions["tasks"]:
+            task_definition = definitions["tasks"][task_name]
+            cls_name = task_definition.get("cls", task_name)
+            task_cls = get_task_cls(
+                module_names=definitions["modules"],
+                task_cls=cls_name)
+
+            task_instance = task_cls(
+                name=task_definition.get("name", task_name),
+                **task_definition["parameters"])
+
+            task_instance.workflow_context = self.context
+            self.tasks[task_name] = task_instance
 
     def get_task(self, name) -> BaseTask:
         guard_not_null(name)
@@ -54,11 +59,6 @@ class Workflow:
             self.error = e
             if self.raise_on_error:
                 raise
-
-
-class WorkflowContext:
-    def __init__(self, dict_: dict):
-        self._dict = dict_
 
 
 class RunStatus(Enum):

@@ -4,7 +4,7 @@ from workflow.initializer import get_task_cls
 import sys
 from abc import ABC, abstractmethod
 from importlib import import_module
-from typing import Dict, List
+from typing import Dict, List, Any
 from enum import Enum
 import logging
 import traceback
@@ -43,17 +43,34 @@ class WorkflowContext(MutableMapping):
 
 
 class BaseTask(ABC):
-    def __init__(self, name: str = None, workflow_context: WorkflowContext = None, **kwargs):
+    def __init__(self, name: str = None, **kwargs):
         if name:
             self.name = name
+        self.workflow_context = None
         for field_name in kwargs:
             setattr(self, field_name, kwargs[field_name])
+
+    @property
+    def workflow_context(self):
+        return self._workflow_context
+
+    @workflow_context.setter
+    def workflow_context(self, value):
+        self._workflow_context = value
 
     @abstractmethod
     def run(self):
         pass
 
-    def output(self):
+    def output(self) -> Any:
+        """Return value of output will be updated to workflow context
+
+        Returns:
+            Any:   
+             - None: No update
+             - Dict: Merge will workflow context
+             - Other: context[task_name] = output
+        """
         pass
 
     def __repr__(self):
