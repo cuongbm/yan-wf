@@ -79,12 +79,14 @@ class BaseTask(ABC):
 
 class Parameter(ABC):
 
-    def __init__(self, default_value=None):
+    def __init__(self, default_value=None, required=False):
         self.validate(default_value)
         self.default_value = default_value
+        self.required = required
 
     def __set_name__(self, owner, name):
         self.private_name = '_' + name
+        self.original_name = name
 
     def __get__(self, obj, objtype=None):
         result = self.default_value
@@ -93,7 +95,9 @@ class Parameter(ABC):
 
         if isinstance(result, str) and result.startswith("$context."):
             key = result[9:]
-            return self._get_from_context(key, obj)
+            result = self._get_from_context(key, obj)
+
+        self._validate_required(result)
 
         return result
 
@@ -104,6 +108,10 @@ class Parameter(ABC):
             raise ValueError(
                 "workflow_context is not set. Cannot access with $context")
         return obj.workflow_context[key]
+
+    def _validate_required(self, value):
+        if self.required and not value:
+            raise ValueError(f"{self.original_name} is required")
 
     def __set__(self, obj, value):
         self.validate(value)

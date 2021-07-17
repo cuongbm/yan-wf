@@ -1,6 +1,7 @@
 from workflow.tasks import BaseTask, Number, Parameter, String
 from workflow.workflows import RunStatus, Workflow
 from os import path
+import pytest
 
 
 class MyWorkflow(Workflow):
@@ -26,9 +27,11 @@ class ReadFileTask(BaseTask):
 class VerifyConnectTask(BaseTask):
     content = String()
     verify_content = String()
+    required_content = String(required=True)
 
     def run(self):
         print(self.content)
+        print(self.required_content)
         assert self.content == self.verify_content
 
 
@@ -71,10 +74,38 @@ class TestWorkflowRun:
                         "name": "VerifyConnectTask",
                         "parameters": {
                             "content": "$context.content",
-                            "verify_content": "this is a sample content"
+                            "verify_content": "this is a sample content",
+                            "required_content": "any"
                         }
                     }
                 }
             })
 
         workflow_instance.run()
+
+    def test_connect_required_parameters(self):
+        workflow_instance = MyWorkflow(
+            raise_on_error=True,
+            definitions={
+                "modules": ["tests.test_workflow.test_workflow"],
+                "context": {
+                    "backend_profile": "sql::conn1",
+                    "test_output": ""
+                },
+                "tasks": {
+                    "ReadFileTask": {
+                        "parameters": {
+                            "path": path.join(path.dirname(path.realpath(__file__)), "test.txt")
+                        }
+                    },
+                    "VerifyConnectTask": {
+                        "name": "VerifyConnectTask",
+                        "parameters": {
+                            "required_content": "$context.test_output",
+                        }
+                    }
+                }
+            })
+
+        with pytest.raises(ValueError):
+            workflow_instance.run()

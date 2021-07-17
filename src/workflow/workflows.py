@@ -20,6 +20,7 @@ class Workflow:
 
         self.tasks: Dict[str, BaseTask] = {}
         if definitions:
+            self.context.update(definitions.get("context", {}))
             self._create_tasks(definitions)
 
     def _create_tasks(self, definitions):
