@@ -1,6 +1,7 @@
+import sys
+
 from abc import ABC, abstractmethod
 from importlib import import_module
-import sys
 from typing import Dict, List
 
 
@@ -19,7 +20,7 @@ def get_task_cls(module_names: List[str], task_cls: Dict):
             raise ValueError(f"Cannot get tasks class: {task_cls}. "
                              f"Looks up in {module_names}")
     except (ImportError, AttributeError) as e:
-        raise ImportError(task_cls)
+        raise ImportError(task_cls) from e
 
 
 def try_import_module(name):

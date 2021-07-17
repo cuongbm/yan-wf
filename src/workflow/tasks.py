@@ -11,12 +11,19 @@ import traceback
 logger = logging.getLogger(__name__)
 
 
-class BaseTask:
+class BaseTask(ABC):
     def __init__(self, name: str = None, **kwargs):
         if name:
             self.name = name
         for field_name in kwargs:
             setattr(self, field_name, kwargs[field_name])
+
+    @abstractmethod
+    def run(self):
+        pass
+
+    def output(self):
+        pass
 
     def __repr__(self):
         return getattr(self, "name", super().__repr__())
@@ -57,10 +64,12 @@ class Number(Parameter):
 
 
 class Workflow:
-    def __init__(self, definitions=None):
+    def __init__(self, raise_on_error=False, definitions=None):
+        self.raise_on_error = raise_on_error
         self.status = RunStatus.NOT_STARTED
         self.trace = None
         self.error = None
+        self.context = {}
 
         self.tasks: Dict[str, BaseTask] = {}
         if definitions:
@@ -76,7 +85,7 @@ class Workflow:
                     **task_definition["parameters"])
                 self.tasks[task_name] = task_instance
 
-    def get_task(self, name):
+    def get_task(self, name) -> BaseTask:
         guard_not_null(name)
         return self.tasks.get(name,  None)
 
@@ -84,11 +93,20 @@ class Workflow:
         try:
             for task_name in self.tasks:
                 self.tasks[task_name].run()
+                output = self.tasks[task_name].output()
+                if output:
+                    if isinstance(output, dict):
+                        self.context.update(output)
+                    else:
+                        self.context[task_name] = output
+
             self.status = RunStatus.SUCCESS
         except Exception as e:
             self.trace = traceback.format_exc()
             self.status = RunStatus.ERROR
             self.error = e
+            if self.raise_on_error:
+                raise
 
 
 class RunStatus(Enum):
