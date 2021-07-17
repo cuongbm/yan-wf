@@ -1,4 +1,5 @@
-from workflow._utils import guard_not_null
+from collections.abc import MutableMapping
+from workflow.utils import guard_not_null
 from workflow.initializer import get_task_cls
 import sys
 from abc import ABC, abstractmethod
@@ -11,8 +12,38 @@ import traceback
 logger = logging.getLogger(__name__)
 
 
+class WorkflowContext(MutableMapping):
+    def __init__(self, *args, **kwargs):
+        self.store = dict()
+        self.update(dict(*args, **kwargs))  # use the free update to set keys
+
+    def __getitem__(self, key):
+        if not "." in key:
+            return self.store[self._keytransform(key)]
+
+        current_value = self.store
+        for part in key.split("."):
+            current_value = current_value[part]
+        return current_value
+
+    def __setitem__(self, key, value):
+        self.store[self._keytransform(key)] = value
+
+    def __delitem__(self, key):
+        del self.store[self._keytransform(key)]
+
+    def __iter__(self):
+        return iter(self.store)
+
+    def __len__(self):
+        return len(self.store)
+
+    def _keytransform(self, key):
+        return key
+
+
 class BaseTask(ABC):
-    def __init__(self, name: str = None, **kwargs):
+    def __init__(self, name: str = None, workflow_context: WorkflowContext = None, **kwargs):
         if name:
             self.name = name
         for field_name in kwargs:
@@ -39,9 +70,23 @@ class Parameter(ABC):
         self.private_name = '_' + name
 
     def __get__(self, obj, objtype=None):
+        result = self.default_value
         if hasattr(obj, self.private_name):
-            return getattr(obj, self.private_name)
-        return self.default_value
+            result = getattr(obj, self.private_name)
+
+        if isinstance(result, str) and result.startswith("$context."):
+            key = result[9:]
+            return self._get_from_context(key, obj)
+
+        return result
+
+    def _get_from_context(self, key, obj):
+        if not hasattr(obj, "workflow_context"):
+            raise ValueError("workflow_context not found")
+        if not obj.workflow_context:
+            raise ValueError(
+                "workflow_context is not set. Cannot access with $context")
+        return obj.workflow_context[key]
 
     def __set__(self, obj, value):
         self.validate(value)
@@ -61,55 +106,3 @@ class String(Parameter):
 class Number(Parameter):
     def validate(self, value):
         int(value)
-
-
-class Workflow:
-    def __init__(self, raise_on_error=False, definitions=None):
-        self.raise_on_error = raise_on_error
-        self.status = RunStatus.NOT_STARTED
-        self.trace = None
-        self.error = None
-        self.context = {}
-
-        self.tasks: Dict[str, BaseTask] = {}
-        if definitions:
-            for task_name in definitions["tasks"]:
-                task_definition = definitions["tasks"][task_name]
-                cls_name = task_definition.get("cls", task_name)
-                task_cls = get_task_cls(
-                    definitions["modules"],
-                    cls_name)
-
-                task_instance = task_cls(
-                    name=task_definition.get("name", task_name),
-                    **task_definition["parameters"])
-                self.tasks[task_name] = task_instance
-
-    def get_task(self, name) -> BaseTask:
-        guard_not_null(name)
-        return self.tasks.get(name,  None)
-
-    def run(self):
-        try:
-            for task_name in self.tasks:
-                self.tasks[task_name].run()
-                output = self.tasks[task_name].output()
-                if output:
-                    if isinstance(output, dict):
-                        self.context.update(output)
-                    else:
-                        self.context[task_name] = output
-
-            self.status = RunStatus.SUCCESS
-        except Exception as e:
-            self.trace = traceback.format_exc()
-            self.status = RunStatus.ERROR
-            self.error = e
-            if self.raise_on_error:
-                raise
-
-
-class RunStatus(Enum):
-    NOT_STARTED = 1
-    SUCCESS = 0
-    ERROR = 2

@@ -1,5 +1,8 @@
-from workflow.tasks import BaseTask, Number, Parameter, RunStatus, String, Workflow
+from workflow.tasks import BaseTask, Number, Parameter, String, WorkflowContext
+from workflow.workflows import RunStatus, Workflow
 from os import path
+import pytest
+import pickle
 
 
 class MyTask(BaseTask):
@@ -112,49 +115,33 @@ class VerifyConnectTask(BaseTask):
         assert self.content == self.verify_content
 
 
-class TestWorkflowRun:
-    def test_run_workflow_error(self):
-        workflow_instance = MyWorkflow(definitions={
-            "modules": ["tests.test_workflow.test_tasks"],
-            "tasks": {
-                "CalledTask": {
-                    "parameters": {}
-                },
-                "RunErrorTask": {
-                    "name": "run_error_task",
-                    "parameters": {
-                        "error_message": "this is a test error"
-                    }
-                }
+class TestWorkflowContext:
+    def test_change_context(self):
+        context = WorkflowContext()
+        context["a"] = "b"
+        assert context["a"] == context.get("a") == "b"
+
+        context["key1"] = {
+            "key2": {
+                "key3": "value4"
+            }
+        }
+
+        assert context["key1.key2"] == {
+            "key3": "value4"
+        }
+
+        assert context["key1.key2.key3"] == "value4"
+
+        # key doest not exist
+        with pytest.raises(KeyError):
+            _ = context["key1.key2.key5"]
+
+    def test_pickle(self):
+        context = WorkflowContext({
+            "a": "b",
+            "c": {
+                "d": 1
             }
         })
-
-        workflow_instance.run()
-
-        assert workflow_instance.status == RunStatus.ERROR
-        print(workflow_instance.trace)
-        assert workflow_instance.trace
-        assert workflow_instance.error
-
-    def test_connect_parameters(self):
-        workflow_instance = MyWorkflow(
-            raise_on_error=True,
-            definitions={
-                "modules": ["tests.test_workflow.test_tasks"],
-                "tasks": {
-                    "ReadFileTask": {
-                        "parameters": {
-                            "path": path.join(path.dirname(path.realpath(__file__)), "test.txt")
-                        }
-                    },
-                    "VerifyConnectTask": {
-                        "name": "VerifyConnectTask",
-                        "parameters": {
-                            "content": "this is a sample content",
-                            "verify_content": "this is a sample content"
-                        }
-                    }
-                }
-            })
-
-        workflow_instance.run()
+        assert pickle.loads(pickle.dumps(context)) == context
