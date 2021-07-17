@@ -1,18 +1,25 @@
+from workflow._utils import guard_not_null
+from workflow.initializer import get_task_cls
 import sys
 from abc import ABC, abstractmethod
 from importlib import import_module
 from typing import Dict, List
 from enum import Enum
+import logging
+import traceback
 
-
-from workflow.initializer import get_task_cls
-from workflow._utils import guard_not_null
+logger = logging.getLogger(__name__)
 
 
 class BaseTask:
-    def __init__(self, **kwargs):
+    def __init__(self, name: str = None, **kwargs):
+        if name:
+            self.name = name
         for field_name in kwargs:
             setattr(self, field_name, kwargs[field_name])
+
+    def __repr__(self):
+        return getattr(self, "name", super().__repr__())
 
 
 class Parameter(ABC):
@@ -31,6 +38,7 @@ class Parameter(ABC):
 
     def __set__(self, obj, value):
         self.validate(value)
+        logger.debug(f"Set value of {obj} to {value}")
         setattr(obj, self.private_name, value)
 
     @abstractmethod
@@ -51,16 +59,20 @@ class Number(Parameter):
 class Workflow:
     def __init__(self, definitions=None):
         self.status = RunStatus.NOT_STARTED
+        self.trace = None
+        self.error = None
 
         self.tasks: Dict[str, BaseTask] = {}
         if definitions:
             for task_name in definitions["tasks"]:
                 task_definition = definitions["tasks"][task_name]
+                cls_name = task_definition.get("cls", task_name)
                 task_cls = get_task_cls(
                     definitions["modules"],
-                    task_name)
+                    cls_name)
 
                 task_instance = task_cls(
+                    name=task_definition.get("name", task_name),
                     **task_definition["parameters"])
                 self.tasks[task_name] = task_instance
 
@@ -69,9 +81,14 @@ class Workflow:
         return self.tasks.get(name,  None)
 
     def run(self):
-        for task_name in self.tasks:
-            self.tasks[task_name].run()
-        self.status = RunStatus.SUCCESS
+        try:
+            for task_name in self.tasks:
+                self.tasks[task_name].run()
+            self.status = RunStatus.SUCCESS
+        except Exception as e:
+            self.trace = traceback.format_exc()
+            self.status = RunStatus.ERROR
+            self.error = e
 
 
 class RunStatus(Enum):

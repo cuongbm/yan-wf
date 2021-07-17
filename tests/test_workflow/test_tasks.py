@@ -61,6 +61,10 @@ def test_run_workflow():
         "tasks": {
             "CalledTask": {
                 "parameters": {}
+            },
+            "CalledTask2": {
+                "cls": "CalledTask",
+                "parameters": {}
             }
         }
     })
@@ -70,5 +74,36 @@ def test_run_workflow():
     workflow_instance.run()
 
     assert workflow_instance.get_task("CalledTask").run_count
+    assert workflow_instance.get_task("CalledTask2").run_count
 
     assert workflow_instance.status == RunStatus.SUCCESS
+
+
+class RunErrorTask(BaseTask):
+    error_message = String(default_value="wth")
+
+    def run(self):
+        raise ValueError(self.error_message)
+
+
+def test_run_workflow_error():
+    workflow_instance = MyWorkflow(definitions={
+        "modules": ["tests.test_workflow.test_tasks"],
+        "tasks": {
+            "CalledTask": {
+                "parameters": {}
+            },
+            "RunErrorTask": {
+                "name": "run_error_task",
+                "parameters": {
+                    "error_message": "this is a test error"
+                }
+            }
+        }
+    })
+
+    workflow_instance.run()
+
+    assert workflow_instance.status == RunStatus.ERROR
+    assert workflow_instance.trace
+    assert workflow_instance.error
