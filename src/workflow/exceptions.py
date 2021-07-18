@@ -1,0 +1,4 @@
+
+
+class PauseWorkflowException(Exception):
+    pass

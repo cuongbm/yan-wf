@@ -50,6 +50,8 @@ class BaseTask(ABC):
         for field_name in kwargs:
             setattr(self, field_name, kwargs[field_name])
 
+        self.init()
+
     @property
     def workflow_context(self):
         return self._workflow_context
@@ -57,6 +59,9 @@ class BaseTask(ABC):
     @workflow_context.setter
     def workflow_context(self, value):
         self._workflow_context = value
+
+    def init(self):
+        pass
 
     @abstractmethod
     def run(self):

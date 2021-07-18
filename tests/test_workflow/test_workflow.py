@@ -1,5 +1,6 @@
 from workflow.tasks import BaseTask, Number, Parameter, String
 from workflow.workflows import RunStatus, Workflow
+from workflow.exceptions import PauseWorkflowException
 from os import path
 import pytest
 
@@ -33,6 +34,18 @@ class VerifyConnectTask(BaseTask):
         print(self.content)
         print(self.required_content)
         assert self.content == self.verify_content
+
+
+class HibernateTask(BaseTask):
+    time_in_ms = Number(default_value=1000)
+    run_count = Number(default_value=1)
+
+    def init(self):
+        pass
+
+    def run(self):
+        if self.run_count == 1:
+            raise PauseWorkflowException("test pause workflow")
 
 
 class TestWorkflowRun:
@@ -109,3 +122,35 @@ class TestWorkflowRun:
 
         with pytest.raises(ValueError):
             workflow_instance.run()
+
+    def test_run_resume_workflow(self):
+        workflow_instance = MyWorkflow(
+            raise_on_error=True,
+            definitions={
+                "modules": ["tests.test_workflow.test_workflow"],
+                "context": {
+                    "backend_profile": "sql::conn1",
+                    "test_output": ""
+                },
+                "tasks": {
+                    "ReadFileTask": {
+                        "parameters": {
+                            "path": path.join(path.dirname(path.realpath(__file__)), "test.txt")
+                        }
+                    },
+                    "HibernateTask": {
+                        "name": "HibernateTask",
+                        "parameters": {
+                        }
+                    }
+                }
+            })
+
+        workflow_instance.run()
+
+        assert workflow_instance.status == RunStatus.PAUSED
+        assert workflow_instance.task_run_stats["ReadFileTask"].status == RunStatus.SUCCESS
+        assert workflow_instance.task_run_stats["ReadFileTask"].start_time
+        assert workflow_instance.task_run_stats["ReadFileTask"].end_time
+        assert workflow_instance.task_run_stats["ReadFileTask"].output
+        assert workflow_instance.task_run_stats["HibernateTask"].status == RunStatus.PAUSED
