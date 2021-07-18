@@ -135,4 +135,5 @@ class String(Parameter):
 
 class Number(Parameter):
     def validate(self, value):
-        int(value)
+        if value:
+            int(value)
