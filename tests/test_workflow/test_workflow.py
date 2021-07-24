@@ -1,9 +1,10 @@
-from workflow.tasks import BaseTask, Number, Parameter, String
-from workflow.workflows import RunStatus, Workflow
-from workflow.exceptions import PauseWorkflowException
 from os import path
 import pytest
 import pickle
+
+from yanwf.tasks import BaseTask, Number, String
+from yanwf.workflows import RunStatus, Workflow
+from yanwf.exceptions import PauseWorkflowException
 
 
 class MyWorkflow(Workflow):
@@ -63,7 +64,9 @@ class HibernateTask(BaseTask):
 class TestWorkflowRun:
     def test_run_workflow_error(self):
         workflow_instance = MyWorkflow(definitions={
-            "modules": ["tests.test_workflow.test_tasks", "tests.test_workflow.test_workflow"],
+            "modules": [
+                "tests.test_workflow.test_tasks",
+                "tests.test_workflow.test_workflow"],
             "tasks": {
                 "CalledTask": {
                     "parameters": {}
@@ -208,4 +211,8 @@ class TestWorkflowRun:
         workflow_instance.run()
 
         # state = workflow_instance.get_state()
-        # state = pickle.loads(pickle.dumps(state))
+        assert workflow_instance.status == RunStatus.PAUSED
+        workflow_instance = pickle.loads(pickle.dumps(workflow_instance))
+        workflow_instance.resume()
+        assert workflow_instance.task_run_stats["HibernateTask"].status == RunStatus.SUCCESS
+        assert workflow_instance.status == RunStatus.SUCCESS

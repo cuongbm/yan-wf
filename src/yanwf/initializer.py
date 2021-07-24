@@ -1,6 +1,3 @@
-import sys
-
-from abc import ABC, abstractmethod
 from importlib import import_module
 from typing import Dict, List
 
@@ -26,5 +23,5 @@ def get_task_cls(module_names: List[str], task_cls: Dict):
 def try_import_module(name):
     try:
         return import_module(name)
-    except ImportError as e:
+    except ImportError:
         return None

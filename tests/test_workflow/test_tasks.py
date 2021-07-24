@@ -1,8 +1,8 @@
-from workflow.tasks import BaseTask, Number, Parameter, String, WorkflowContext
-from workflow.workflows import RunStatus, Workflow
-from os import path
 import pytest
 import pickle
+
+from yanwf.tasks import BaseTask, Number, String, WorkflowContext
+from yanwf.workflows import RunStatus, Workflow
 
 
 class MyTask(BaseTask):

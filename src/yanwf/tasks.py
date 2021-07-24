@@ -1,13 +1,8 @@
-from collections.abc import MutableMapping
-from workflow.utils import guard_not_null
-from workflow.initializer import get_task_cls
-import sys
-from abc import ABC, abstractmethod
-from importlib import import_module
-from typing import Dict, List, Any
-from enum import Enum
 import logging
-import traceback
+from collections.abc import MutableMapping
+from abc import ABC, abstractmethod
+from typing import Any
+
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +13,7 @@ class WorkflowContext(MutableMapping):
         self.update(dict(*args, **kwargs))  # use the free update to set keys
 
     def __getitem__(self, key):
-        if not "." in key:
+        if "." not in key:
             return self.store[self._keytransform(key)]
 
         current_value = self.store
@@ -71,7 +66,7 @@ class BaseTask(ABC):
         """Return value of output will be updated to workflow context
 
         Returns:
-            Any:   
+            Any:
              - None: No update
              - Dict: Merge will workflow context
              - Other: context[task_name] = output
