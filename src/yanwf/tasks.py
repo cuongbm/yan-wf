@@ -36,6 +36,9 @@ class WorkflowContext(MutableMapping):
     def _keytransform(self, key):
         return key
 
+    def __repr__(self):
+        return str(self.store)
+
 
 class BaseTask(ABC):
     def __init__(self, name: str = None, **kwargs):
@@ -78,14 +81,13 @@ class BaseTask(ABC):
 
 
 class Parameter(ABC):
-
     def __init__(self, default_value=None, required=False):
         self.validate(default_value)
         self.default_value = default_value
         self.required = required
 
     def __set_name__(self, owner, name):
-        self.private_name = '_' + name
+        self.private_name = "_" + name
         self.original_name = name
 
     def __get__(self, obj, objtype=None):
@@ -105,8 +107,7 @@ class Parameter(ABC):
         if not hasattr(obj, "workflow_context"):
             raise ValueError("workflow_context not found")
         if not obj.workflow_context:
-            raise ValueError(
-                "workflow_context is not set. Cannot access with $context")
+            raise ValueError("workflow_context is not set. Cannot access with $context")
         return obj.workflow_context[key]
 
     def _validate_required(self, value):
@@ -120,7 +121,7 @@ class Parameter(ABC):
 
     @abstractmethod
     def validate(self, value):
-        print(f'validate {value}')
+        print(f"validate {value}")
 
 
 class String(Parameter):

@@ -17,5 +17,5 @@ lint:
 rabbitmq:
 	CALL .\deployment\start_rabbitmq.bat
 
-celery_worker1:
-	celery -A tests.test_workflow.test_celery worker --loglevel=INFO
+celery_worker1: rabbitmq
+	celery -A run_celery.celery_app worker --loglevel=INFO
